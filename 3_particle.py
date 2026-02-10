@@ -1,12 +1,19 @@
 import time
 import brickpi3
+import math
+import random
 
 BP = brickpi3.BrickPi3()
 
 # CHANGE THESE
 forward_sleep = 2
 turn_sleep = 2
-forward_degrees = 875 / 4
+forward_degrees = 875 / 12
+
+num_particles = 100
+scale = 15
+w_i = 1/num_particles
+particles = [(0.0, 0.0, 0.0, w_i)] * num_particles
 
 
 def reset_motor():
@@ -50,17 +57,49 @@ def print_motor_info():
     print(BP.get_motor_status(BP.PORT_C))
     print(BP.get_motor_encoder(BP.PORT_C))
     
+def update_part_forward(D = 10):
+    sigma_e = 0.01
+    sigma_f = 0.02
+    
+    for i, p in enumerate(particles):
+        x, y, th, w = p
+        e = random.gauss(0.0, sigma_e)
+        f = random.gauss(0.0, sigma_f)
+        D_noisy = D + e
+        x_new = x + D_noisy * math.cos(th)
+        y_new = y + D_noisy * math.sin(th)
+        th_new = th + f
+        particles[i] = ((x_new, y_new, th_new, w))
+    
+def update_part_turn(alpha = math.pi/2):
+    sigma_g = 0.002
+
+    for i, p in enumerate(particles):
+        x, y, th, w = p
+        g = random.gauss(0.0, sigma_g)
+        th_new = th + alpha + g
+        particles[i] = ((x, y, th_new, w))
+    
 def draw_line(x0, y0, x1, y1):
-    print("drawLine:" + str((x0*10, 400-y0*10, x1*10, 400-y1*10)))
+    print("drawLine:" + 
+            str(
+                (x0*scale, 
+                 (40-y0)*scale, 
+                 x1*scale, 
+                 (40-y1)*scale
+                )
+            )
+         )
 
-def draw_particles(x, y, theta):
-    print("drawParticles:" + str((x*10, y*10, theta)))
-
+def draw_particles(x, y):
+    new_p = [(scale*x_i,  (40-y_i)*scale, theta_i, w) for (x_i,  y_i, theta_i, w) in particles]
+    print(particles)
+    print("drawParticles:" + str(new_p))
+    
 def main():
     try:
         x0, y0 = 0, 0
         x1, y1 = 0, 0 
-        theta = 0
         toAdd = [(10, 0), (0, 10), (-10, 0), (0, -10)]
         for i in range(4):
             for j in range(4):
@@ -68,12 +107,15 @@ def main():
                 x1 += toAdd[i][0]
                 y1 += toAdd[i][1]
                 draw_line(x0, y0, x1, y1)
+                update_part_forward()
+                draw_particles(x1, y1)
                 x0 = x1
                 y0 = y1
                 time.sleep(0.5)
-                draw_particles(x1, y1, theta)
             turn()
-            theta += 90
+            update_part_turn()
+            draw_particles(x1, y1)
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         BP.reset_all()
