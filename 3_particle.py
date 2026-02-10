@@ -8,8 +8,8 @@ BP = brickpi3.BrickPi3()
 # CHANGE THESE
 forward_sleep = 2
 turn_sleep = 2
-forward_degrees = 875 / 12
-
+forward_degrees = 875 / 4
+y_max = 45
 num_particles = 100
 scale = 15
 w_i = 1/num_particles
@@ -84,22 +84,21 @@ def draw_line(x0, y0, x1, y1):
     print("drawLine:" + 
             str(
                 (x0*scale, 
-                 (40-y0)*scale, 
+                 (y_max-y0)*scale, 
                  x1*scale, 
-                 (40-y1)*scale
+                 (y_max-y1)*scale
                 )
             )
          )
 
-def draw_particles(x, y):
-    new_p = [(scale*x_i,  (40-y_i)*scale, theta_i, w) for (x_i,  y_i, theta_i, w) in particles]
-    print(particles)
+def draw_particles():
+    new_p = [(scale*(x_i+10),  (y_max-y_i)*scale, theta_i, w) for (x_i,  y_i, theta_i, w) in particles]
     print("drawParticles:" + str(new_p))
     
 def main():
     try:
-        x0, y0 = 0, 0
-        x1, y1 = 0, 0 
+        x0, y0 = 10, 0
+        x1, y1 = x0, y0
         toAdd = [(10, 0), (0, 10), (-10, 0), (0, -10)]
         for i in range(4):
             for j in range(4):
@@ -108,13 +107,13 @@ def main():
                 y1 += toAdd[i][1]
                 draw_line(x0, y0, x1, y1)
                 update_part_forward()
-                draw_particles(x1, y1)
+                draw_particles()
                 x0 = x1
                 y0 = y1
                 time.sleep(0.5)
             turn()
             update_part_turn()
-            draw_particles(x1, y1)
+            draw_particles()
             time.sleep(0.5)
 
     except KeyboardInterrupt:
