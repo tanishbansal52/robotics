@@ -21,7 +21,16 @@ At 70° = 95cm
 The maximum angular deviation from perpendicular to the wall at which it will still give sensible readings is 85°. There is also some human error.
 
 # 3
+True | Reported
+20cm = 20 
+40cm = 40
+60cm = 60
+80cm = 80
+100cm = 100
 
 # 4
+True | Reported
+40cm = 40, 40, 39, 40, 40, 39, 41, 40, 40, 41
+100cm = 99, 100, 100, 99, 99, 102, 99, 101, 99, 100  
 
 # 5
