@@ -34,3 +34,6 @@ True | Reported
 100cm = 99, 100, 100, 99, 99, 102, 99, 101, 99, 100  
 
 # 5
+Within 10cm and 220cm, and a 5-10 degree range on either side, and ensuring there are no obstructions in the way of the sonar sensor, we get accurate readings about 98% of the time.
+Outside of 10-220cm, we get accurate readings 30% (varies a lot) of the time.
+Outside of the 5-10 degree range, we get increasingly inaccurate readings as the angle increases; so about ~5% of readings are close enough to the ground truth but otherwise readings are garbage.
