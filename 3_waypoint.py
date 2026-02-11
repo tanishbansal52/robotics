@@ -5,11 +5,16 @@ import random
 
 BP = brickpi3.BrickPi3()
 
-# CHANGE THESE
+# Positions
+TARGET = (6, 7)
+position = (0, 0, 0)
+
+# Settings
 DEBUG = False
 forward_sleep = 2
 turn_sleep = 2
-metre_degrees = 1750
+metre_degrees = 2187 #2187.5
+
 
 def reset_motor():
     # Reseting motor
@@ -54,51 +59,36 @@ def print_motor_info():
     print(BP.get_motor_status(BP.PORT_C))
     print(BP.get_motor_encoder(BP.PORT_C))
 
-def estimate_pose_from_particles():
-    """
-    Compute mean pose (x_bar, y_bar, theta_bar) from global particle set.
-    Particles are (x_i, y_i, theta_i, w_i) in world metres / radians.
-    """
-    sum_x = sum(w * x for (x, y, th, w) in particles)
-    sum_y = sum(w * y for (x, y, th, w) in particles)
-    # For angle, average on unit circle to handle wrap-around
-    sum_cos = sum(w * math.cos(th) for (x, y, th, w) in particles)
-    sum_sin = sum(w * math.sin(th) for (x, y, th, w) in particles)
-    theta_bar = math.atan2(sum_sin, sum_cos)
-    return sum_x, sum_y, theta_bar
-
 def navigateToWaypoint(Wx, Wy):
-    x, y, theta = estimate_pose_from_particles()
+    global position
+    x, y, theta = position
 
     dx = Wx - x
     dy = Wy - y
 
-    alpha = math.atan2(dy, dx) 
-
-    beta = alpha - theta
-    while beta > math.pi:
-        beta -= 2.0 * math.pi
-    while beta <= -math.pi:
-        beta += 2.0 * math.pi
+    alpha = math.atan2(dy, dx)
+    d_theta = alpha - theta
+    
+    
+    print(f"Navigating from {position} by ({dx}, {dy}, {d_theta})")
+          
+    while d_theta > math.pi:
+        d_theta -= 2.0 * math.pi
+    while d_theta <= -math.pi:
+        d_theta += 2.0 * math.pi
 
     d = math.hypot(dx, dy)
 
-    turn_on_spot(beta)
+    turn_on_spot(d_theta)
     drive_straight(d)
-    update_part_turn(beta)
-    update_part_forward(d)
 
-    x_new, y_new, theta_new = estimate_pose_from_particles()
-    return x_new, y_new, theta_new
-
+    position = (Wx, Wy, alpha)
+    return
     
-
 def main():
     try:
-        x0, y0, theta = 0, 0, 0
-        go_forward()
-        turn()
-        time.sleep(0.5)
+        wx, wy = TARGET
+        navigateToWaypoint(wx, wy)
 
     except KeyboardInterrupt:
         BP.reset_all()
