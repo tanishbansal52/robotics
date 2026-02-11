@@ -6,14 +6,15 @@ import random
 BP = brickpi3.BrickPi3()
 
 # Positions
-TARGET = (2, 1)
+TARGET = (0.1, 0.1)
 position = (0, 0, 0)
 
 # Settings
 DEBUG = False
-forward_sleep = 2
+forward_sleep = 5
 turn_sleep = 2
-metre_degrees = 2187 #2187.5
+metre_degrees = 2187
+#2187.5
 
 
 def reset_motor():
@@ -37,7 +38,7 @@ def go_forward(dist):
     if DEBUG:
         print("=======FORWARD INFO========")
         print_motor_info()
-    time.sleep(forward_sleep)
+    time.sleep(forward_sleep * dist)
 
 def turn(angle):
     turn_degrees = angle * (270 / (math.pi / 2.0))
@@ -50,7 +51,7 @@ def turn(angle):
     if DEBUG:
         print("=======TURN INFO========")
         print_motor_info()
-    time.sleep(turn_sleep)
+    time.sleep(turn_sleep * (angle / (math.pi / 2.0)))
     
 def print_motor_info():
     print("---------B--------")
