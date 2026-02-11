@@ -6,7 +6,7 @@ import random
 BP = brickpi3.BrickPi3()
 
 # Positions
-TARGET = (0.1, 0.1)
+TARGET = (0.1, 0.2)
 position = (0, 0, 0)
 
 # Settings
@@ -51,7 +51,7 @@ def turn(angle):
     if DEBUG:
         print("=======TURN INFO========")
         print_motor_info()
-    time.sleep(turn_sleep * (angle / (math.pi / 2.0)))
+    time.sleep(turn_sleep * (abs(angle) / (math.pi / 2.0)))
     
 def print_motor_info():
     print("---------B--------")
