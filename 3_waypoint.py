@@ -6,7 +6,7 @@ import random
 BP = brickpi3.BrickPi3()
 
 # Positions
-TARGET = (6, 7)
+TARGET = (2, 1)
 position = (0, 0, 0)
 
 # Settings
@@ -30,6 +30,7 @@ def go_forward(dist):
     BP.set_motor_limits(BP.PORT_B, 71)
     BP.set_motor_limits(BP.PORT_C, 70)
     reset_motor()
+    print(f"Travelling {dist} metres")
     forward_degrees = dist * metre_degrees
     
     BP.set_motor_position(BP.PORT_B | BP.PORT_C, forward_degrees)
@@ -60,6 +61,7 @@ def print_motor_info():
     print(BP.get_motor_encoder(BP.PORT_C))
 
 def navigateToWaypoint(Wx, Wy):
+    print("in nav")
     global position
     x, y, theta = position
 
@@ -79,14 +81,16 @@ def navigateToWaypoint(Wx, Wy):
 
     d = math.hypot(dx, dy)
 
-    turn_on_spot(d_theta)
-    drive_straight(d)
+    turn(d_theta)
+    go_forward(d)
 
     position = (Wx, Wy, alpha)
     return
     
 def main():
+    print("in main")
     try:
+        reset_motor()
         wx, wy = TARGET
         navigateToWaypoint(wx, wy)
 
