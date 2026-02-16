@@ -7,7 +7,7 @@ import math
 import random                              
 
 BP = brickpi3.BrickPi3()
-BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
+
 
 # CHANGE THESE
 DEBUG = False
@@ -213,13 +213,18 @@ def draw_particles():
     print("drawParticles:" + str(new_p))
     
 def get_sonar_reading():
+    print("Trying to get sonar reading")
     try:
         value = BP.get_sensor(BP.PORT_4)
-        return value                        
+        print("Returning reading", value)
+        return value
     except brickpi3.SensorError as error:
-        print(error)
+        print("Sonar error:", error)
+        return None    # explicit
 
-    time.sleep(0.02)
+    # (time.sleep here is unreachable now, you can move it into a loop if needed)
+
+
     
 def find_wall(x, y, theta):
     if y < 0 or y > 215 or x < 0 or x > 215:
@@ -232,21 +237,32 @@ def find_wall(x, y, theta):
     min_m = float('inf')
     for k, w in walls.items():
         ax, ay, bx, by = w
-        m = ((by - ay)(ax - x) - (bx - ax)(ay - y)) / ((by - ay) * math.cos(theta) - (bx - ax) * math.sin(theta))
+        m = ((by - ay) * (ax - x) - (bx - ax) * (ay - y)) / ((by - ay) * math.cos(theta) - (bx - ax) * math.sin(theta))
         target_x = x + m * math.cos(theta)
         target_y = y + m * math.sin(theta)
-        if m > 0 and target_x in range(ax, bx) and target_y in range(ay, by):
+        print("tx", target_x, ax, bx)
+        print("ty", target_y, ay, by)
+        if ax > bx:
+            ax, bx = bx, ax
+        if ay > by:
+            ay, by = by, ay
+        if m >= 0 and (ax <= target_x <= bx) and (ay <= target_y <= by):
+            print(" ======= ENTERED =======", m)
             dists[k] = m
             if m < min_m:
                 min_k = k
                 min_m = m
-    return min_k, min_m
+    return (min_k, min_m)
     
 def calculate_likelihood(x, y, theta, z):
+    print("z: ", z)
     wall, m = find_wall(x, y, theta)
+    print("m: ", m)
     st_dev = 0.025
     K = 0.001
-    likelihood = math.exp( (-(z-m) ** 2)/ (2 * (st_dev) ** 2) ) + K
+    print((z-m)**2)
+    print((2*(st_dev)**2))
+    likelihood = math.exp( (-((z-m)**2)) / (2*(st_dev)**2) ) + K
     
     print("Dist expected: ", min_m)
     print("Sonar reading: ", z)
@@ -254,6 +270,10 @@ def calculate_likelihood(x, y, theta, z):
     print("Wall: ", wall)
     return likelihood
     
+def intialise_sensor():
+    print("Intialised sensor")
+    BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
+    time.sleep(0.2)
     
 def main():
     try:
@@ -284,8 +304,8 @@ def main():
 
 #main()
 
-draw_canvas()
-
-
+intialise_sensor()
+print(get_sonar_reading())
+#draw_canvas()
 
    
