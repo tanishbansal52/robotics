@@ -221,8 +221,23 @@ def find_wall(x, y, theta):
     if y < 0 or y > 215 or x < 0 or x > 215:
         print("X or Y failed")
         return
-    m = 1 / math.arctan(theta)
-        
+    walls = {"a":(0,0,0,168), "b":(0,168,84,168), "c":(84,126,84,210), "d":(84,210,168,210),
+             "e":(168,210,168,84), "f":(168,84,210,84), "g":(210,84,210,0), "h":(210,0,0,0)}
+    dists = {}
+    min_k = ""
+    min_m = float('inf')
+    for k, w in walls.items():
+        ax, ay, bx, by = w
+        m = ((by - ay)(ax - x) - (bx - ax)(ay - y)) / ((by - ay) * math.cos(theta) - (bx - ax) * math.sin(theta))
+        target_x = x + m * math.cos(theta)
+        target_y = y + m * math.sin(theta)
+        if m > 0 and target_x in range(ax, bx) and target_y in range(ay, by):
+            dists[k] = m
+            if m < min_m:
+                min_k = k
+                min_m = m
+    return min_k, min_m
+    
 
 def main():
     try:
