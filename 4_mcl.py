@@ -8,11 +8,8 @@ import random
 
 BP = brickpi3.BrickPi3()
 
-def intialise_sensor():
-    BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
-    print("Intialised sensor")
-    time.sleep(0.2)
-    
+BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
+time.sleep(0.2)
 
 # CHANGE THESE
 DEBUG = False
@@ -222,6 +219,7 @@ def get_sonar_reading():
     try:
         value = BP.get_sensor(BP.PORT_4)
         print("Returning reading", value)
+        time.sleep(0.02)
         return value
     except brickpi3.SensorError as error:
         print("Sonar error:", error)
@@ -301,9 +299,6 @@ def main():
     BP.reset_all()
 
 #main()
-
-intialise_sensor()
-#print(get_sonar_reading())
 draw_canvas()
 
    
