@@ -1,10 +1,10 @@
+from __future__ import print_function 
+from __future__ import division 
+
 import time
 import brickpi3
 import math
-import random
-
-from __future__ import print_function # use python 3 syntax but make it compatible with python 2
-from __future__ import division       #                           ''
+import random                              
 
 BP = brickpi3.BrickPi3()
 BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
@@ -24,10 +24,10 @@ particles = [(0.0, 0.0, 0.0, w_i)] * num_particles
 ######################################################################
 
 # Functions to generate some dummy particles data:
-def calcX():
+def calcX(t):
     return random.gauss(80,3) + 70*(math.sin(t)) # in cm
 
-def calcY():
+def calcY(t):
     return random.gauss(70,3) + 60*(math.sin(2*t)) # in cm
 
 def calcW():
@@ -37,8 +37,8 @@ def calcTheta():
     return random.randint(0,360)
 
 # A Canvas class for drawing a map and particles:
-# 	- it takes care of a proper scaling and coordinate transformation between
-#	  the map frame of reference (in cm) and the display (in pixels)
+#     - it takes care of a proper scaling and coordinate transformation between
+#      the map frame of reference (in cm) and the display (in pixels)
 class Canvas:
     def __init__(self,map_size=210):
         self.map_size    = map_size    # in cm
@@ -84,16 +84,19 @@ class Particles:
         self.n = 10    
         self.data = []
 
-    def update(self):
-        self.data = [(calcX(), calcY(), calcTheta(), calcW()) for i in range(self.n)]
+    def update(self, t):
+        self.data = [(calcX(t), calcY(t), calcTheta(), calcW()) for i in range(self.n)]
     
     def draw(self):
         canvas.drawParticles(self.data)
         
-def draw_canvas():
-    canvas = Canvas()	# global canvas we are going to draw on
+global canvas 
+canvas = Canvas()
 
-    mymap = Map()
+global mymap 
+mymap = Map()
+        
+def draw_canvas():
     # Definitions of walls
     # a: O to A
     # b: A to B
@@ -117,7 +120,7 @@ def draw_canvas():
 
     t = 0
     while True:
-        particles.update()
+        particles.update(t)
         particles.draw()
         t += 0.05
         time.sleep(0.05)
@@ -213,6 +216,13 @@ def get_sonar_reading():
         print(error)
 
     time.sleep(0.02)
+    
+def find_wall(x, y, theta):
+    if y < 0 or y > 215 or x < 0 or x > 215:
+        print("X or Y failed")
+        return
+    m = 1 / math.arctan(theta)
+        
 
 def main():
     try:
@@ -241,9 +251,9 @@ def main():
     
     BP.reset_all()
 
-main()
+#main()
 
-
+draw_canvas()
 
 
 
