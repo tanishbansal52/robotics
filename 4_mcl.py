@@ -87,16 +87,37 @@ class Particles:
         self.data = []
 
     def update(self, t):
-        #self.data = []
+        data = []
+        self.data = []
+        total = 0
         for i in range(self.n):
             x = calcX(t)
             y = calcY(t)
             theta = calcTheta()
             z = get_sonar_reading()
             w = calculate_likelihood(x, y, theta, z)
-            print("W: ", w)
-            self.data.append((x, y, theta, w))
+            total += w
+            data.append((x, y, theta, w))
+        for x, y, theta, w in data:
+            self.data.append((x, y, theta, w/total))
+            
+        new_data = []
+        cum_w = [0.0] * self.n
+        cum_w[0] = self.data[0][3]
+        for i in range(1, self.n):
+            cum_w[i] = cum_w[i-1] + self.data[i][3]
     
+        for i in range(self.n):
+            r = random.uniform(0, 1)
+            # Find j where cum_w[j-1] < r <= cum_w[j]
+            for j in range(self.n):
+                if cum_w[j] >= r:
+                    x, y, theta, _ = self.data[j]  # copy strong particle
+                    new_data.append((x, y, theta, 1.0/self.n))
+                    break
+        print(r, new_data)
+        self.data = new_data
+            
     def draw(self):
         canvas.drawParticles(self.data)
         
