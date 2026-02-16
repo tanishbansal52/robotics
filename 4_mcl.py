@@ -85,7 +85,11 @@ class Particles:
         self.data = []
 
     def update(self, t):
-        self.data = [(calcX(t), calcY(t), calcTheta(), calcW()) for i in range(self.n)]
+        x = calcX(t)
+        y = calcY(t)
+        theta = calcTheta()
+        z = get_sonar_reading()
+        self.data = [(x, y, theta, calculate_likelihood(x, y, theta, z)) for i in range(self.n)]
     
     def draw(self):
         canvas.drawParticles(self.data)
@@ -238,7 +242,19 @@ def find_wall(x, y, theta):
                 min_m = m
     return min_k, min_m
     
-
+def calculate_likelihood(x, y, theta, z):
+    wall, m = find_wall(x, y, theta)
+    st_dev = 0.025
+    K = 0.001
+    likelihood = math.exp( (-(z-m) ** 2)/ (2 * (st_dev) ** 2) ) + K
+    
+    print("Dist expected: ", min_m)
+    print("Sonar reading: ", z)
+    print("Likelihood: ", likelihood)
+    print("Wall: ", wall)
+    return likelihood
+    
+    
 def main():
     try:
         x0, y0, theta = 0, 0, 0
