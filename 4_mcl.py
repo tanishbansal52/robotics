@@ -8,6 +8,11 @@ import random
 
 BP = brickpi3.BrickPi3()
 
+def intialise_sensor():
+    BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
+    print("Intialised sensor")
+    time.sleep(0.2)
+    
 
 # CHANGE THESE
 DEBUG = False
@@ -220,9 +225,7 @@ def get_sonar_reading():
         return value
     except brickpi3.SensorError as error:
         print("Sonar error:", error)
-        return None    # explicit
-
-    # (time.sleep here is unreachable now, you can move it into a loop if needed)
+        return None
 
 
     
@@ -264,16 +267,11 @@ def calculate_likelihood(x, y, theta, z):
     print((2*(st_dev)**2))
     likelihood = math.exp( (-((z-m)**2)) / (2*(st_dev)**2) ) + K
     
-    print("Dist expected: ", min_m)
+    print("Dist expected: ", m)
     print("Sonar reading: ", z)
     print("Likelihood: ", likelihood)
     print("Wall: ", wall)
     return likelihood
-    
-def intialise_sensor():
-    print("Intialised sensor")
-    BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
-    time.sleep(0.2)
     
 def main():
     try:
@@ -305,7 +303,7 @@ def main():
 #main()
 
 intialise_sensor()
-print(get_sonar_reading())
-#draw_canvas()
+#print(get_sonar_reading())
+draw_canvas()
 
    
