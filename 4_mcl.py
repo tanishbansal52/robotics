@@ -87,11 +87,15 @@ class Particles:
         self.data = []
 
     def update(self, t):
-        x = calcX(t)
-        y = calcY(t)
-        theta = calcTheta()
-        z = get_sonar_reading()
-        self.data = [(x, y, theta, calculate_likelihood(x, y, theta, z)) for i in range(self.n)]
+        #self.data = []
+        for i in range(self.n):
+            x = calcX(t)
+            y = calcY(t)
+            theta = calcTheta()
+            z = get_sonar_reading()
+            w = calculate_likelihood(x, y, theta, z)
+            print("W: ", w)
+            self.data.append((x, y, theta, w))
     
     def draw(self):
         canvas.drawParticles(self.data)
@@ -215,10 +219,8 @@ def draw_particles():
     print("drawParticles:" + str(new_p))
     
 def get_sonar_reading():
-    print("Trying to get sonar reading")
     try:
         value = BP.get_sensor(BP.PORT_4)
-        print("Returning reading", value)
         time.sleep(0.02)
         return value
     except brickpi3.SensorError as error:
@@ -238,17 +240,16 @@ def find_wall(x, y, theta):
     min_m = float('inf')
     for k, w in walls.items():
         ax, ay, bx, by = w
-        m = ((by - ay) * (ax - x) - (bx - ax) * (ay - y)) / ((by - ay) * math.cos(theta) - (bx - ax) * math.sin(theta))
+        m = 0 
+        if ((by - ay) * math.cos(theta) - (bx - ax) * math.sin(theta)) != 0:
+            m = ((by - ay) * (ax - x) - (bx - ax) * (ay - y)) / ((by - ay) * math.cos(theta) - (bx - ax) * math.sin(theta))
         target_x = x + m * math.cos(theta)
         target_y = y + m * math.sin(theta)
-        print("tx", target_x, ax, bx)
-        print("ty", target_y, ay, by)
         if ax > bx:
             ax, bx = bx, ax
         if ay > by:
             ay, by = by, ay
         if m >= 0 and (ax <= target_x <= bx) and (ay <= target_y <= by):
-            print(" ======= ENTERED =======", m)
             dists[k] = m
             if m < min_m:
                 min_k = k
@@ -256,19 +257,11 @@ def find_wall(x, y, theta):
     return (min_k, min_m)
     
 def calculate_likelihood(x, y, theta, z):
-    print("z: ", z)
     wall, m = find_wall(x, y, theta)
-    print("m: ", m)
-    st_dev = 0.025
-    K = 0.001
-    print((z-m)**2)
-    print((2*(st_dev)**2))
+    st_dev = 2.5
+    K = 0.0001
     likelihood = math.exp( (-((z-m)**2)) / (2*(st_dev)**2) ) + K
-    
-    print("Dist expected: ", m)
-    print("Sonar reading: ", z)
-    print("Likelihood: ", likelihood)
-    print("Wall: ", wall)
+    print(likelihood)
     return likelihood
     
 def main():
@@ -299,6 +292,9 @@ def main():
     BP.reset_all()
 
 #main()
-draw_canvas()
+try:
+    draw_canvas()
+except KeyboardInterrupt:
+    BP.reset_all()
 
    
