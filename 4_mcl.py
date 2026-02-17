@@ -13,7 +13,7 @@ time.sleep(0.2)
 
 # Positions
 TARGET = (180, 30)
-position = (84, 30, 0)
+position = (84, 30, 0, 1)
 
 # Settings
 DEBUG = False
@@ -25,9 +25,12 @@ metre_degrees = 2187
 
 # Functions to generate some dummy particles data:
 
-sigma_e = 2
+sigma_e = 2.5
 sigma_f = 0.02
+sigma_g = 0.01
     
+    
+# D is in cm
 def calc_particle_forward(x, y, theta, D):
     e = random.gauss(0.0, sigma_e)
     f = random.gauss(0.0, sigma_f)
@@ -38,13 +41,9 @@ def calc_particle_forward(x, y, theta, D):
     return (x_new, y_new, theta_new)
 
 def calc_particle_on_turn(x, y, theta, alpha):
-    e = random.gauss(0.0, sigma_e)
-    f = random.gauss(0.0, sigma_f)
-    D_noisy = D + e
-    x_new = x + D_noisy * math.cos(theta)
-    y_new = y + D_noisy * math.sin(theta)
-    theta_new = theta + f
-    return (x_new, y_new, theta_new)
+    g = random.gauss(0.0, sigma_g)
+    theta_new = theta + alpha + g
+    return (x, y, theta_new)
     
 
 def calcW():
@@ -52,15 +51,6 @@ def calcW():
 
 def calcTheta():
     return random.randint(0,360) * math.pi / 180.0
-    
-def update_part_turn(alpha = math.pi/2):
-    sigma_g = 0.02
-
-    for i, p in enumerate(particles):
-        x, y, th, w = p
-        g = random.gauss(0.0, sigma_g)
-        th_new = th + alpha + g
-        particles[i] = ((x, y, th_new, w))
 
 # A Canvas class for drawing a map and particles:
 #     - it takes care of a proper scaling and coordinate transformation between
@@ -109,41 +99,79 @@ class Particles:
     def __init__(self):
         self.n = 10
         self.data = []
-
-    def update(self, robot_x, robot_y, robot_theta, d):
-        data = []
-        self.data = []
-        total = 0
         for i in range(self.n):
-            x, y, theta = calc_particle_forward(robot_x, robot_y, robot_theta, d)
-            z = get_sonar_reading()
+            x = position[0]
+            y = position[1]
+            theta = position[2]
+            w = 1/self.n
+            self.data.append((x, y, theta, w))
+
+    def update(self, d, d_theta):
+        motion_particles = []
+        total_weight = 0
+        z = 0
+        for i in range(5):
+            z += get_sonar_reading()
+        z /= 5
+        
+        for x, y, theta, w in self.data:
+            if d_theta == 0:
+                x, y, theta = calc_particle_forward(x, y, theta, d)
+            else:
+                x, y, theta = calc_particle_on_turn(x, y, theta, d_theta)
             w = calculate_likelihood(x, y, theta, z)
-            total += w
-            data.append((x, y, theta, w))
+            total_weight += w
+            motion_particles.append((x, y, theta, w))
             
-        print(data)
+        print(motion_particles)
 
         # Normalising
-        for x, y, theta, w in data:
-            self.data.append((x, y, theta, w/total))
+        normalised_particles = []
+        for x, y, theta, w in motion_particles:
+            normalised_particles.append((x, y, theta, w/total_weight))
             
         # Resampling
-        new_data = []
+        self.data = []
         cum_w = [0.0] * self.n
-        cum_w[0] = self.data[0][3]
+        cum_w[0] = normalised_particles[0][3]
         for i in range(1, self.n):
-            cum_w[i] = cum_w[i-1] + self.data[i][3]
+            cum_w[i] = cum_w[i-1] + normalised_particles[i][3]
     
         for i in range(self.n):
             r = random.uniform(0, 1)
             # Find j where cum_w[j-1] < r <= cum_w[j]
             for j in range(self.n):
                 if cum_w[j] >= r:
-                    x, y, theta, _ = self.data[j]  # copy strong particle
-                    new_data.append((x, y, theta, 1.0/self.n))
+                    x, y, theta, _ = normalised_particles[j]
+                    self.data.append((x, y, theta, 1/self.n))
                     break
-        self.data = new_data
+        
+    def get_estimate_pos(self):
+        # Calculate the weighted mean of the particles
+        mean_x = 0
+        mean_y = 0
+        mean_sin = 0
+        mean_cos = 0
+        total_weight = 0
+        
+        for x, y, theta, w in self.data:
+            mean_x += x * w
+            mean_y += y * w
+            # Use vector addition for angles to handle the 0/360 wrap-around correctly
+            mean_sin += math.sin(theta) * w
+            mean_cos += math.cos(theta) * w
+            total_weight += w
             
+        if total_weight == 0:
+            return (0,0,0) # Should not happen if normalized
+            
+        mean_x /= total_weight
+        mean_y /= total_weight
+        mean_theta = math.atan2(mean_sin, mean_cos)
+        
+        return (mean_x, mean_y, mean_theta)
+
+        
     def draw(self):
         canvas.drawParticles(self.data)
         
@@ -177,8 +205,8 @@ def draw_canvas():
     mymap.add_wall((210,0,0,0))        # h
     mymap.draw()
 
-def draw_canvas_particles(x, y, theta, dist):
-    particles.update(x, y, theta, dist)
+def draw_canvas_particles(dist, d_theta):
+    particles.update(dist, d_theta)
     particles.draw()
         
 ######################################################################
@@ -276,7 +304,7 @@ def print_motor_info():
 def navigateToWaypoint(Wx, Wy):
     print("in nav")
     global position
-    x, y, theta = position
+    x, y, theta, _ = position
 
     dx = Wx - x
     dy = Wy - y
@@ -294,15 +322,29 @@ def navigateToWaypoint(Wx, Wy):
 
     d = math.hypot(dx, dy)
     
+    # TURN
     turn(d_theta)
+    draw_canvas_particles(0, d_theta)
+    time.sleep(1)
+    
+    # FORWARD
     to_move = d / 100
+    theta = alpha
+    est_x, est_y, est_theta = particles.get_estimate_pos()
+    position = (est_x, est_y, est_theta)
+    theta = est_theta 
     while (to_move > 0):
         move_by = min(to_move, 0.2)
         go_forward(move_by)
-        x += 20 * math.cos(theta)
-        y += 20 * math.sin(theta)
-        draw_canvas_particles(x, y, theta, move_by)
-        to_move -= 0.2
+        x += move_by * 100 * math.cos(theta)
+        y += move_by * 100 * math.sin(theta)
+        draw_canvas_particles(move_by * 100, 0)
+        
+        est_x, est_y, est_theta = particles.get_estimate_pos()
+        position = (est_x, est_y, est_theta)
+        
+        to_move -= math.sqrt((x - est_x) ** 2 + (y - est_y) ** 2)
+        #theta = est_theta
         time.sleep(2)
 
     position = (Wx, Wy, alpha)
