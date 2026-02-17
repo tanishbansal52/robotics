@@ -24,28 +24,34 @@ metre_degrees = 2187
 ######################################################################
 
 # Functions to generate some dummy particles data:
-def calcXY(x, y):
-    return random.gauss(80,3) + 70*(math.sin(t)) # in cm
+
+sigma_e = 2
+sigma_f = 0.02
+    
+def calc_particle_forward(x, y, theta, D):
+    e = random.gauss(0.0, sigma_e)
+    f = random.gauss(0.0, sigma_f)
+    D_noisy = D + e
+    x_new = x + D_noisy * math.cos(theta)
+    y_new = y + D_noisy * math.sin(theta)
+    theta_new = theta + f
+    return (x_new, y_new, theta_new)
+
+def calc_particle_on_turn(x, y, theta, alpha):
+    e = random.gauss(0.0, sigma_e)
+    f = random.gauss(0.0, sigma_f)
+    D_noisy = D + e
+    x_new = x + D_noisy * math.cos(theta)
+    y_new = y + D_noisy * math.sin(theta)
+    theta_new = theta + f
+    return (x_new, y_new, theta_new)
+    
 
 def calcW():
     return random.random()
 
 def calcTheta():
     return random.randint(0,360) * math.pi / 180.0
-
-def update_part_forward(D = 0.2):
-    sigma_e = 0.1
-    sigma_f = 0.02
-    
-    for i, p in enumerate(particles):
-        x, y, th, w = p
-        e = random.gauss(0.0, sigma_e)
-        f = random.gauss(0.0, sigma_f)
-        D_noisy = D + e
-        x_new = x + D_noisy * math.cos(th)
-        y_new = y + D_noisy * math.sin(th)
-        th_new = th + f
-        particles[i] = ((x_new, y_new, th_new, w))
     
 def update_part_turn(alpha = math.pi/2):
     sigma_g = 0.02
@@ -104,16 +110,19 @@ class Particles:
         self.n = 10
         self.data = []
 
-    def update(self, x, y, theta):
+    def update(self, robot_x, robot_y, robot_theta, d):
         data = []
         self.data = []
         total = 0
         for i in range(self.n):
+            x, y, theta = calc_particle_forward(robot_x, robot_y, robot_theta, d)
             z = get_sonar_reading()
             w = calculate_likelihood(x, y, theta, z)
             total += w
             data.append((x, y, theta, w))
             
+        print(data)
+
         # Normalising
         for x, y, theta, w in data:
             self.data.append((x, y, theta, w/total))
@@ -168,8 +177,8 @@ def draw_canvas():
     mymap.add_wall((210,0,0,0))        # h
     mymap.draw()
 
-def draw_canvas_particles(x, y, theta):
-    particles.update(x, y, theta)
+def draw_canvas_particles(x, y, theta, dist):
+    particles.update(x, y, theta, dist)
     particles.draw()
         
 ######################################################################
@@ -288,10 +297,11 @@ def navigateToWaypoint(Wx, Wy):
     turn(d_theta)
     to_move = d / 100
     while (to_move > 0):
-        go_forward(min(to_move, 0.2))
+        move_by = min(to_move, 0.2)
+        go_forward(move_by)
         x += 20 * math.cos(theta)
         y += 20 * math.sin(theta)
-        draw_canvas_particles(x, y, theta)
+        draw_canvas_particles(x, y, theta, move_by)
         to_move -= 0.2
         time.sleep(2)
 
