@@ -11,17 +11,15 @@ BP = brickpi3.BrickPi3()
 BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
 time.sleep(0.2)
 
-# CHANGE THESE
+# Positions
+TARGET = (180, 30)
+position = (84, 30, 0)
+
+# Settings
 DEBUG = False
-forward_sleep = 2
+forward_sleep = 5
 turn_sleep = 2
-forward_degrees = 900 / 4
-x_shift = 10
-y_shift = 45
-num_particles = 100
-scale = 15
-w_i = 1/num_particles
-particles = [(0.0, 0.0, 0.0, w_i)] * num_particles
+metre_degrees = 2187
 
 ######################################################################
 
@@ -36,7 +34,7 @@ def calcW():
     return random.random()
 
 def calcTheta():
-    return random.randint(0,360)
+    return random.randint(0,360) * math.pi / 180.0
 
 # A Canvas class for drawing a map and particles:
 #     - it takes care of a proper scaling and coordinate transformation between
@@ -98,9 +96,12 @@ class Particles:
             w = calculate_likelihood(x, y, theta, z)
             total += w
             data.append((x, y, theta, w))
+            
+        # Normalising
         for x, y, theta, w in data:
             self.data.append((x, y, theta, w/total))
             
+        # Resampling
         new_data = []
         cum_w = [0.0] * self.n
         cum_w[0] = self.data[0][3]
@@ -115,7 +116,6 @@ class Particles:
                     x, y, theta, _ = self.data[j]  # copy strong particle
                     new_data.append((x, y, theta, 1.0/self.n))
                     break
-        print(r, new_data)
         self.data = new_data
             
     def draw(self):
@@ -126,6 +126,10 @@ canvas = Canvas()
 
 global mymap 
 mymap = Map()
+
+global particles
+particles = Particles()
+
         
 def draw_canvas():
     # Definitions of walls
@@ -147,8 +151,7 @@ def draw_canvas():
     mymap.add_wall((210,0,0,0))        # h
     mymap.draw()
 
-    particles = Particles()
-
+def draw_canvas_particles():
     t = 0
     while True:
         particles.update(t)
@@ -158,87 +161,6 @@ def draw_canvas():
         
 ######################################################################
 
-def reset_motor():
-    # Reseting motor
-    BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B))
-    BP.offset_motor_encoder(BP.PORT_C, BP.get_motor_encoder(BP.PORT_C))
-
-def set_power_limit(power_limit):
-    # Setting power limits
-    BP.set_motor_limits(BP.PORT_B, power_limit)
-    BP.set_motor_limits(BP.PORT_C, power_limit)
-
-def go_forward():
-    # forward
-    BP.set_motor_limits(BP.PORT_B, 71)
-    BP.set_motor_limits(BP.PORT_C, 70)
-    reset_motor()
-    BP.set_motor_position(BP.PORT_B | BP.PORT_C, forward_degrees)
-    if DEBUG:
-        print("=======FORWARD INFO========")
-        print_motor_info()
-    time.sleep(forward_sleep)
-
-def turn():
-    # orignal 260
-    turn_degrees = 270
-    # turn
-    BP.set_motor_limits(BP.PORT_B, 50)
-    BP.set_motor_limits(BP.PORT_C, 50)
-    reset_motor()
-    BP.set_motor_position(BP.PORT_C, turn_degrees)
-    BP.set_motor_position(BP.PORT_B, -turn_degrees)
-    if DEBUG:
-        print("=======TURN INFO========")
-        print_motor_info()
-    time.sleep(turn_sleep)
-    
-def print_motor_info():
-    print("---------B--------")
-    print(BP.get_motor_status(BP.PORT_B))
-    print(BP.get_motor_encoder(BP.PORT_B))
-    print("---------C--------")
-    print(BP.get_motor_status(BP.PORT_C))
-    print(BP.get_motor_encoder(BP.PORT_C))
-    
-def update_part_forward(D = 10):
-    sigma_e = 0.1
-    sigma_f = 0.02
-    
-    for i, p in enumerate(particles):
-        x, y, th, w = p
-        e = random.gauss(0.0, sigma_e)
-        f = random.gauss(0.0, sigma_f)
-        D_noisy = D + e
-        x_new = x + D_noisy * math.cos(th)
-        y_new = y + D_noisy * math.sin(th)
-        th_new = th + f
-        particles[i] = ((x_new, y_new, th_new, w))
-    
-def update_part_turn(alpha = math.pi/2):
-    sigma_g = 0.02
-
-    for i, p in enumerate(particles):
-        x, y, th, w = p
-        g = random.gauss(0.0, sigma_g)
-        th_new = th + alpha + g
-        particles[i] = ((x, y, th_new, w))
-    
-def draw_line(x0, y0, x1, y1):
-    print("drawLine:" + 
-            str(
-                ((x_shift+x0)*scale, 
-                 (y_shift-y0)*scale, 
-                 (x_shift+x1)*scale, 
-                 (y_shift-y1)*scale
-                )
-               )
-         )
-
-def draw_particles():
-    new_p = [((x_i + 10) * scale,  (y_shift - y_i) * scale, theta_i, w) for (x_i,  y_i, theta_i, w) in particles]
-    print("drawParticles:" + str(new_p))
-    
 def get_sonar_reading():
     try:
         value = BP.get_sensor(BP.PORT_4)
@@ -247,8 +169,6 @@ def get_sonar_reading():
     except brickpi3.SensorError as error:
         print("Sonar error:", error)
         return None
-
-
     
 def find_wall(x, y, theta):
     if y < 0 or y > 215 or x < 0 or x > 215:
@@ -282,40 +202,100 @@ def calculate_likelihood(x, y, theta, z):
     st_dev = 2.5
     K = 0.0001
     likelihood = math.exp( (-((z-m)**2)) / (2*(st_dev)**2) ) + K
-    print(likelihood)
     return likelihood
     
+##############################################################################
+##############################################################################
+
+def reset_motor():
+    # Reseting motor
+    BP.offset_motor_encoder(BP.PORT_B, BP.get_motor_encoder(BP.PORT_B))
+    BP.offset_motor_encoder(BP.PORT_C, BP.get_motor_encoder(BP.PORT_C))
+
+def set_power_limit(power_limit):
+    # Setting power limits
+    BP.set_motor_limits(BP.PORT_B, power_limit)
+    BP.set_motor_limits(BP.PORT_C, power_limit)
+
+def go_forward(dist):
+    BP.set_motor_limits(BP.PORT_B, 71)
+    BP.set_motor_limits(BP.PORT_C, 70)
+    reset_motor()
+    print(f"Travelling {dist} metres")
+    forward_degrees = dist * metre_degrees
+    
+    BP.set_motor_position(BP.PORT_B | BP.PORT_C, forward_degrees)
+    if DEBUG:
+        print("=======FORWARD INFO========")
+        print_motor_info()
+    time.sleep(forward_sleep * dist)
+
+def turn(angle):
+    turn_degrees = angle * (270 / (math.pi / 2.0))
+    # turn
+    BP.set_motor_limits(BP.PORT_B, 50)
+    BP.set_motor_limits(BP.PORT_C, 50)
+    reset_motor()
+    BP.set_motor_position(BP.PORT_C, turn_degrees)
+    BP.set_motor_position(BP.PORT_B, -turn_degrees)
+    if DEBUG:
+        print("=======TURN INFO========")
+        print_motor_info()
+    time.sleep(turn_sleep * (abs(angle) / (math.pi / 2.0)))
+    
+def print_motor_info():
+    print("---------B--------")
+    print(BP.get_motor_status(BP.PORT_B))
+    print(BP.get_motor_encoder(BP.PORT_B))
+    print("---------C--------")
+    print(BP.get_motor_status(BP.PORT_C))
+    print(BP.get_motor_encoder(BP.PORT_C))
+
+def navigateToWaypoint(Wx, Wy):
+    print("in nav")
+    global position
+    x, y, theta = position
+
+    dx = Wx - x
+    dy = Wy - y
+
+    alpha = math.atan2(dy, dx)
+    d_theta = alpha - theta
+    
+    
+    print(f"Navigating from {position} by ({dx}, {dy}, {d_theta})")
+          
+    while d_theta > math.pi:
+        d_theta -= 2.0 * math.pi
+    while d_theta <= -math.pi:
+        d_theta += 2.0 * math.pi
+
+    d = math.hypot(dx, dy)
+    
+    turn(d_theta)
+    for i in range(d//20 + 1):
+        go_forward(0.2)
+        draw_canvas_particles()
+        time.sleep(2)
+
+    position = (Wx, Wy, alpha)
+    return
+    
+##############################################################################
+##############################################################################
+
 def main():
+    print("in main")
     try:
-        x0, y0, theta = 0, 0, 0
-        x1, y1 = x0, y0
-        toAdd = [(10, 0), (0, 10), (-10, 0), (0, -10)]
-        for i in range(4):
-            for j in range(4):
-                go_forward()
-                x1 += toAdd[i][0]
-                y1 += toAdd[i][1]
-                draw_line(x0, y0, x1, y1)
-                print(x1, y1)
-                update_part_forward()
-                draw_particles()
-                x0 = x1
-                y0 = y1
-                time.sleep(0.5)
-            turn()
-            update_part_turn()
-            draw_particles()
-            time.sleep(0.5)
+        draw_canvas()
+        reset_motor()
+        wx, wy = TARGET
+        navigateToWaypoint(wx, wy)
 
     except KeyboardInterrupt:
         BP.reset_all()
     
     BP.reset_all()
 
-#main()
-try:
-    draw_canvas()
-except KeyboardInterrupt:
-    BP.reset_all()
-
+main()
    
