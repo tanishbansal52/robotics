@@ -328,15 +328,15 @@ def navigateToWaypoint(Wx, Wy):
     time.sleep(1)
     
     # FORWARD
-    to_move = d
+    to_move = d / 100
     theta = alpha
     est_x, est_y, est_theta = particles.get_estimate_pos()
     position = (est_x, est_y, est_theta)
     theta = est_theta 
     while (to_move > 0):
-        move_by = min(to_move, 20)
-        go_forward(move_by/100)
-        draw_canvas_particles(move_by, 0)
+        move_by = min(to_move, 0.2)
+        go_forward(move_by)
+        draw_canvas_particles(move_by * 100, 0)
         
         est_x, est_y, est_theta = particles.get_estimate_pos()
         position = (est_x, est_y, est_theta)
