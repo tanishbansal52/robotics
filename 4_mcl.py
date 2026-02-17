@@ -24,17 +24,37 @@ metre_degrees = 2187
 ######################################################################
 
 # Functions to generate some dummy particles data:
-def calcX(t):
+def calcXY(x, y):
     return random.gauss(80,3) + 70*(math.sin(t)) # in cm
-
-def calcY(t):
-    return random.gauss(70,3) + 60*(math.sin(2*t)) # in cm
 
 def calcW():
     return random.random()
 
 def calcTheta():
     return random.randint(0,360) * math.pi / 180.0
+
+def update_part_forward(D = 0.2):
+    sigma_e = 0.1
+    sigma_f = 0.02
+    
+    for i, p in enumerate(particles):
+        x, y, th, w = p
+        e = random.gauss(0.0, sigma_e)
+        f = random.gauss(0.0, sigma_f)
+        D_noisy = D + e
+        x_new = x + D_noisy * math.cos(th)
+        y_new = y + D_noisy * math.sin(th)
+        th_new = th + f
+        particles[i] = ((x_new, y_new, th_new, w))
+    
+def update_part_turn(alpha = math.pi/2):
+    sigma_g = 0.02
+
+    for i, p in enumerate(particles):
+        x, y, th, w = p
+        g = random.gauss(0.0, sigma_g)
+        th_new = th + alpha + g
+        particles[i] = ((x, y, th_new, w))
 
 # A Canvas class for drawing a map and particles:
 #     - it takes care of a proper scaling and coordinate transformation between
@@ -81,17 +101,14 @@ class Map:
 # Simple Particles set
 class Particles:
     def __init__(self):
-        self.n = 10    
+        self.n = 10
         self.data = []
 
-    def update(self, t):
+    def update(self, x, y, theta):
         data = []
         self.data = []
         total = 0
         for i in range(self.n):
-            x = calcX(t)
-            y = calcY(t)
-            theta = calcTheta()
             z = get_sonar_reading()
             w = calculate_likelihood(x, y, theta, z)
             total += w
@@ -151,13 +168,9 @@ def draw_canvas():
     mymap.add_wall((210,0,0,0))        # h
     mymap.draw()
 
-def draw_canvas_particles():
-    t = 0
-    while True:
-        particles.update(t)
-        particles.draw()
-        t += 0.05
-        time.sleep(0.05)
+def draw_canvas_particles(x, y, theta):
+    particles.update(x, y, theta)
+    particles.draw()
         
 ######################################################################
 
@@ -273,9 +286,13 @@ def navigateToWaypoint(Wx, Wy):
     d = math.hypot(dx, dy)
     
     turn(d_theta)
-    for i in range(d//20 + 1):
-        go_forward(0.2)
-        draw_canvas_particles()
+    to_move = d / 100
+    while (to_move > 0):
+        go_forward(min(to_move, 0.2))
+        x += 20 * math.cos(theta)
+        y += 20 * math.sin(theta)
+        draw_canvas_particles(x, y, theta)
+        to_move -= 0.2
         time.sleep(2)
 
     position = (Wx, Wy, alpha)
