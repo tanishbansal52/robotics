@@ -11,16 +11,19 @@ BP = brickpi3.BrickPi3()
 BP.set_sensor_type(BP.PORT_4, BP.SENSOR_TYPE.NXT_ULTRASONIC)
 time.sleep(0.2)
 
-# Positions
-TARGET = (180, 30)
-position = (84, 30, 0, 1)
+# Wavpoint navigation stuff
+POSITIONS = [(84, 30), (180, 30), (180, 54), (138, 54), (138, 168), (114, 168), (114, 84), (84, 84), (84, 30)]
+position = (POSITIONS[0][0], POSITIONS[0][1], 0)
+
+POSITION_TOLERANCE = 3.0
+ANGLE_TOLERANCE = 2 * math.pi / 180
 
 # Settings
 DEBUG = False
 forward_sleep = 5
 turn_sleep = 2
 metre_degrees = 2187
-
+SENSOR_OFFSET_FROM_CENTRE = 7 # 7cm off from centre of wheels
 ######################################################################
 
 # Functions to generate some dummy particles data:
@@ -45,7 +48,6 @@ def calc_particle_on_turn(x, y, theta, alpha):
     theta_new = theta + alpha + g
     return (x, y, theta_new)
     
-
 def calcW():
     return random.random()
 
@@ -97,7 +99,7 @@ class Map:
 # Simple Particles set
 class Particles:
     def __init__(self):
-        self.n = 10
+        self.n = 100
         self.data = []
         for i in range(self.n):
             x = position[0]
@@ -123,7 +125,7 @@ class Particles:
             total_weight += w
             motion_particles.append((x, y, theta, w))
             
-        print(motion_particles)
+        #print(motion_particles)
 
         # Normalising
         normalised_particles = []
@@ -215,7 +217,7 @@ def get_sonar_reading():
     try:
         value = BP.get_sensor(BP.PORT_4)
         time.sleep(0.02)
-        return value
+        return value + SENSOR_OFFSET_FROM_CENTRE
     except brickpi3.SensorError as error:
         print("Sonar error:", error)
         return None
@@ -301,51 +303,53 @@ def print_motor_info():
     print(BP.get_motor_status(BP.PORT_C))
     print(BP.get_motor_encoder(BP.PORT_C))
 
+    
+def wrap_to_pi(a):
+    while a > math.pi:
+        a -= 2.0 * math.pi
+    while a <= -math.pi:
+        a += 2.0 * math.pi
+    return a
+    
 def navigateToWaypoint(Wx, Wy):
     print("in nav")
     global position
-    x, y, theta, _ = position
+    x, y, theta = position
+    est_theta = theta
+    
+    while True:
+        dx = Wx - x
+        dy = Wy - y
+        to_move = math.hypot(dx, dy)
 
-    dx = Wx - x
-    dy = Wy - y
+        if to_move <= POSITION_TOLERANCE:
+            break
+            
+        desired = math.atan2(dy, dx)
+        heading_err = wrap_to_pi(desired - est_theta)
 
-    alpha = math.atan2(dy, dx)
-    d_theta = alpha - theta
-    
-    
-    print(f"Navigating from {position} by ({dx}, {dy}, {d_theta})")
-          
-    while d_theta > math.pi:
-        d_theta -= 2.0 * math.pi
-    while d_theta <= -math.pi:
-        d_theta += 2.0 * math.pi
-
-    d = math.hypot(dx, dy)
-    
-    # TURN
-    turn(d_theta)
-    draw_canvas_particles(0, d_theta)
-    time.sleep(1)
-    
-    # FORWARD
-    to_move = d / 100
-    theta = alpha
-    est_x, est_y, est_theta = particles.get_estimate_pos()
-    position = (est_x, est_y, est_theta)
-    theta = est_theta 
-    while (to_move > 0):
-        move_by = min(to_move, 0.2)
-        go_forward(move_by)
-        draw_canvas_particles(move_by * 100, 0)
-        
+        # TURN
+        if abs(heading_err) > ANGLE_TOLERANCE:     
+            print("TURNING in NavWaypoint")
+            turn(heading_err)
+            draw_canvas_particles(0, heading_err)
+            time.sleep(1)
+        else: # FORWARD
+            print("MOVING in NavWaypoint")
+            move_by = min(to_move, 20)
+            if move_by <= POSITION_TOLERANCE:
+                break
+            go_forward(move_by/100)
+            draw_canvas_particles(move_by, 0)
+            
         est_x, est_y, est_theta = particles.get_estimate_pos()
         position = (est_x, est_y, est_theta)
-        
-        to_move = math.sqrt((Wx - est_x) ** 2 + (Wy - est_y) ** 2)
-        #theta = est_theta
         time.sleep(2)
-
-    position = (Wx, Wy, alpha)
+            
+        x = est_x
+        y = est_y
+        theta = est_theta
+        
     return
     
 ##############################################################################
@@ -356,8 +360,11 @@ def main():
     try:
         draw_canvas()
         reset_motor()
-        wx, wy = TARGET
-        navigateToWaypoint(wx, wy)
+        
+        for i, (wx, wy) in enumerate(POSITIONS[1:]):
+            print(f"Navigating to waypoint {i+1}: ({wx}, {wy})")
+            navigateToWaypoint(wx, wy)
+            time.sleep(2)
 
     except KeyboardInterrupt:
         BP.reset_all()
