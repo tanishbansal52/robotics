@@ -15,7 +15,7 @@ time.sleep(0.2)
 POSITIONS = [(84, 30), (180, 30), (180, 54), (138, 54), (138, 168), (114, 168), (114, 84), (84, 84), (84, 30)]
 position = (POSITIONS[0][0], POSITIONS[0][1], 0)
 
-POSITION_TOLERANCE = 3.0
+POSITION_TOLERANCE = 2.0
 ANGLE_TOLERANCE = 2 * math.pi / 180
 
 # Settings
@@ -28,9 +28,9 @@ SENSOR_OFFSET_FROM_CENTRE = 7 # 7cm off from centre of wheels
 
 # Functions to generate some dummy particles data:
 
-sigma_e = 2.5
-sigma_f = 0.02
-sigma_g = 0.01
+sigma_e = 2.8
+sigma_f = 0.04
+sigma_g = 0.02
     
     
 # D is in cm
@@ -73,6 +73,23 @@ class Canvas:
 
     def drawParticles(self,data):
         display = [(self.__screenX(d[0]),self.__screenY(d[1])) + d[2:] for d in data]
+        delta = 1
+        for (x, y) in POSITIONS:
+            cx = self.__screenX(x)
+            cy = self.__screenY(y)
+            
+            pts = [
+            (cx,     cy    ),   # centre
+            (cx+delta*self.scale, cy    ),   # right
+            (cx-delta*self.scale, cy    ),   # left
+            (cx,     cy+delta*self.scale),   # up
+            (cx,     cy-delta*self.scale)    # down
+            ]
+            
+
+            for px, py in pts:
+                display.append((px, py, 0.0, 1.0))
+            
         print ("drawParticles:" + str(display))
 
     def __screenX(self,x):
@@ -273,7 +290,6 @@ def go_forward(dist):
     BP.set_motor_limits(BP.PORT_B, 71)
     BP.set_motor_limits(BP.PORT_C, 70)
     reset_motor()
-    print(f"Travelling {dist} metres")
     forward_degrees = dist * metre_degrees
     
     BP.set_motor_position(BP.PORT_B | BP.PORT_C, forward_degrees)
@@ -330,22 +346,22 @@ def navigateToWaypoint(Wx, Wy):
 
         # TURN
         if abs(heading_err) > ANGLE_TOLERANCE:     
-            print("TURNING in NavWaypoint")
+            print(f"TURNING by {heading_err}")
             turn(heading_err)
             draw_canvas_particles(0, heading_err)
             time.sleep(1)
         else: # FORWARD
-            print("MOVING in NavWaypoint")
             move_by = min(to_move, 20)
             if move_by <= POSITION_TOLERANCE:
                 break
+            print(f"MOVING FORWARD by {move_by}")
             go_forward(move_by/100)
             draw_canvas_particles(move_by, 0)
             
         est_x, est_y, est_theta = particles.get_estimate_pos()
         position = (est_x, est_y, est_theta)
         time.sleep(2)
-            
+        print(f"I think im at {position}")
         x = est_x
         y = est_y
         theta = est_theta
