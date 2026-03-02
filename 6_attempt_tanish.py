@@ -242,7 +242,32 @@ def prune_obstacles():
                  if (obs[0] - robot_x) * math.cos(robot_theta) +
                     (obs[1] - robot_y) * math.sin(robot_theta) > -0.3]
 
+def victory_celebration():
+    BP.set_motor_dps(MOTOR_LEFT,  0)
+    BP.set_motor_dps(MOTOR_RIGHT, 0)
+    time.sleep(0.3)
 
+    # Spin right
+    BP.set_motor_dps(MOTOR_LEFT,  400)
+    BP.set_motor_dps(MOTOR_RIGHT, -400)
+    time.sleep(0.6)
+
+    # Spin left
+    BP.set_motor_dps(MOTOR_LEFT,  -400)
+    BP.set_motor_dps(MOTOR_RIGHT,  400)
+    time.sleep(0.6)
+
+    # Spin right full circle
+    BP.set_motor_dps(MOTOR_LEFT,  400)
+    BP.set_motor_dps(MOTOR_RIGHT, -400)
+    time.sleep(1.2)
+
+    # Stop
+    BP.set_motor_dps(MOTOR_LEFT,  0)
+    BP.set_motor_dps(MOTOR_RIGHT, 0)
+    # ─────────────────────────────────────────────────
+    
+    
 # ─── Main Loop ────────────────────────────────────────────────────────────────
 print("DWA navigation starting. Starting in 2 seconds.")
 time.sleep(2)
@@ -267,8 +292,9 @@ try:
               f"vL={vL:.2f} vR={vR:.2f} | "
               f"obs={len(obstacles)}")
 
-        if robot_x >= 3.0:
-            print(f">>> Crossed 3m line in {elapsed:.2f}s!")
+        if robot_x >= 3.25:
+            print(f">>> Crossed 3.25m line in {elapsed:.2f}s!")
+            victory_celebration()
             break
 
         # Sleep remaining DT
