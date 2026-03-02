@@ -29,21 +29,24 @@ def mps_to_dps(v):
 # ─── DWA Tuning Parameters ───────────────────────────────────────────────────
 MAXVELOCITY     = 0.40   # m/s  – increase once reliable
 MAXACCELERATION = 0.50   # m/s² – how fast velocity can change per step
-ROBOT_RADIUS    = 0.12   # m    – robot footprint radius
-BARRIER_RADIUS  = 0.06   # m    – cola can ~3cm radius, 6cm for safety margin
+#ROBOT_RADIUS    = 0.12   # m    – robot footprint radius
+BARRIER_RADIUS  = 0.05   # m    – cola can ~3cm radius, 6cm for safety margin
 #SAFEDIST        = 0.20   # m    – obstacle cost activates below this distance
 #FORWARD_WEIGHT  = 12     # reward for moving toward target
 #OBSTACLE_WEIGHT = 20     # penalty for closeness to obstacles
 #TAU             = 1.5    # s    – lookahead time for DWA trajectory scoring
 DT              = 0.10   # s    – main control loop timestep
 
-SAFEDIST        = 0.18   # tighter — allows passing 40cm gaps confidently
-OBSTACLE_WEIGHT = 24     # higher — stronger avoidance signal
+SAFEDIST        = 0.15   # tighter — allows passing 40cm gaps confidently
+OBSTACLE_WEIGHT = 30     # higher — stronger avoidance signal
 FORWARD_WEIGHT  = 10
 TAU             = 1.0    # shorter lookahead — more reactive, less phantom-avoidance
 
+ROBOT_RADIUS    = 0.15   # m    – robot footprint radius
+
+
 # Target: well beyond finish line so robot keeps driving through
-TARGET_X, TARGET_Y = 4.0, 0.0
+TARGET_X, TARGET_Y = 4.5, 0.0
 
 # ─── Camera Setup ────────────────────────────────────────────────────────────
 picam2 = Picamera2()
@@ -189,31 +192,34 @@ def closest_obstacle_dist(x, y):
                for obs in obstacles)
 
 def dwa_step():
-    """One DWA planning step: sample velocities, score, choose best."""
     global vL, vR
     best_benefit = -1e9
     vL_best, vR_best = vL, vR
 
-    for vLp in (vL - MAXACCELERATION*DT, vL, vL + MAXACCELERATION*DT):
-        for vRp in (vR - MAXACCELERATION*DT, vR, vR + MAXACCELERATION*DT):
-            # Enforce velocity limits
+    # 5 candidates per wheel instead of 3
+    dv = MAXACCELERATION * DT
+    vL_options = [vL + i*dv/2 for i in range(-2, 3)]
+    vR_options = [vR + i*dv/2 for i in range(-2, 3)]
+
+    for vLp in vL_options:
+        for vRp in vR_options:
             if not (-MAXVELOCITY <= vLp <= MAXVELOCITY and
                     -MAXVELOCITY <= vRp <= MAXVELOCITY):
                 continue
-
-            # Predict position TAU seconds ahead
+            if vLp < 0 and vRp < 0:   # no reversing
+                continue
+            
             xp, yp, _ = predict_position(vLp, vRp, robot_x, robot_y, robot_theta, TAU)
+            xm, ym, _ = predict_position(vLp, vRp, robot_x, robot_y, robot_theta, TAU/2)
 
-            dist_obs = closest_obstacle_dist(xp, yp)
-            if dist_obs < 0:          # predicted collision – discard
+            dist_obs = min(closest_obstacle_dist(xp, yp),
+                           closest_obstacle_dist(xm, ym))
+            if dist_obs < 0:
                 continue
 
-            # Reward: forward progress toward target
             d_prev = math.hypot(robot_x - TARGET_X, robot_y - TARGET_Y)
             d_new  = math.hypot(xp      - TARGET_X, yp      - TARGET_Y)
             fwd_benefit = FORWARD_WEIGHT * (d_prev - d_new)
-
-            # Penalty: closeness to obstacles
             obs_cost = (OBSTACLE_WEIGHT * (SAFEDIST - dist_obs)
                         if dist_obs < SAFEDIST else 0.0)
 
@@ -223,6 +229,7 @@ def dwa_step():
                 vL_best, vR_best = vLp, vRp
 
     vL, vR = vL_best, vR_best
+
 
 def set_motors(vL_ms, vR_ms):
     BP.set_motor_dps(MOTOR_LEFT,  int(mps_to_dps(vL_ms)))
