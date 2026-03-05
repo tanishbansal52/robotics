@@ -27,14 +27,9 @@ def mps_to_dps(v):
     return v / WHEEL_RADIUS * (180.0 / math.pi)
 
 # ─── DWA Tuning Parameters ───────────────────────────────────────────────────
-MAXVELOCITY     = 0.40   # m/s  – increase once reliable
+MAXVELOCITY     = 0.40   # m/s  – increase once reliable                       # 0.40
 MAXACCELERATION = 0.50   # m/s² – how fast velocity can change per step
-#ROBOT_RADIUS    = 0.12   # m    – robot footprint radius
-BARRIER_RADIUS  = 0.05   # m    – cola can ~3cm radius, 6cm for safety margin
-#SAFEDIST        = 0.20   # m    – obstacle cost activates below this distance
-#FORWARD_WEIGHT  = 12     # reward for moving toward target
-#OBSTACLE_WEIGHT = 20     # penalty for closeness to obstacles
-#TAU             = 1.5    # s    – lookahead time for DWA trajectory scoring
+BARRIER_RADIUS  = 0.05   # m    – cola can ~3cm radius, 6cm for safety marging # 0.05
 DT              = 0.10   # s    – main control loop timestep
 
 SAFEDIST        = 0.15   # tighter — allows passing 40cm gaps confidently
@@ -269,12 +264,12 @@ def victory_celebration():
     
     
 # ─── Main Loop ────────────────────────────────────────────────────────────────
-print("DWA navigation starting. Starting in 2 seconds.")
-time.sleep(2)
+print("DWA navigation starting. Starting...")
+time.sleep(0.1)
 
 start_time = time.time()
 print("GO!")
-
+printed = 0
 try:
     while True:
         t0 = time.time()
@@ -291,7 +286,10 @@ try:
               f"hdg={math.degrees(robot_theta):.1f}° | "
               f"vL={vL:.2f} vR={vR:.2f} | "
               f"obs={len(obstacles)}")
-
+        if robot_x >= 3 and not printed:
+            print(f">>> Crossed 3m line in {elapsed:.2f}s!")
+            printed = 1
+            
         if robot_x >= 3.25:
             print(f">>> Crossed 3.25m line in {elapsed:.2f}s!")
             victory_celebration()
